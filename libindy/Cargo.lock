@@ -752,12 +752,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "openssl-src"
+version = "111.2.1+1.1.1b"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+dependencies = [
+ "cc 1.0.28 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
 name = "openssl-sys"
 version = "0.9.40"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "cc 1.0.28 (registry+https://github.com/rust-lang/crates.io-index)",
  "libc 0.2.41 (registry+https://github.com/rust-lang/crates.io-index)",
+ "openssl-src 111.2.1+1.1.1b (registry+https://github.com/rust-lang/crates.io-index)",
  "pkg-config 0.3.14 (registry+https://github.com/rust-lang/crates.io-index)",
  "vcpkg 0.2.6 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
@@ -1359,6 +1368,7 @@ dependencies = [
 "checksum num-traits 0.2.6 (registry+https://github.com/rust-lang/crates.io-index)" = "0b3a5d7cc97d6d30d8b9bc8fa19bf45349ffe46241e8816f50f62f6d6aaabee1"
 "checksum num_cpus 1.9.0 (registry+https://github.com/rust-lang/crates.io-index)" = "5a69d464bdc213aaaff628444e99578ede64e9c854025aa43b9796530afa9238"
 "checksum openssl 0.10.12 (registry+https://github.com/rust-lang/crates.io-index)" = "5e2e79eede055813a3ac52fb3915caf8e1c9da2dec1587871aec9f6f7b48508d"
+"checksum openssl-src 111.2.1+1.1.1b (registry+https://github.com/rust-lang/crates.io-index)" = "a42e4a28c5a3da4b0df51795aee275b812164c43a690caa871bfa71bf0d52439"
 "checksum openssl-sys 0.9.40 (registry+https://github.com/rust-lang/crates.io-index)" = "1bb974e77de925ef426b6bc82fce15fd45bdcbeb5728bffcfc7cdeeb7ce1c2d6"
 "checksum owning_ref 0.3.3 (registry+https://github.com/rust-lang/crates.io-index)" = "cdf84f41639e037b484f93433aa3897863b561ed65c6e59c7073d7c561710f37"
 "checksum pkg-config 0.3.14 (registry+https://github.com/rust-lang/crates.io-index)" = "676e8eb2b1b4c9043511a9b7bea0915320d7e502b0a079fb03f9635a5252b18c"
