@@ -85,7 +85,7 @@ version = "0.5.0"
 default-features = false
 features = ["v4"]
 
-[target.'not(cfg(target_os = "android"))'.dependencies]
+[target.'cfg(not(target_os = "android"))'.dependencies]
 openssl = { version = "=0.10.12", optional = true }
 
 [target.'cfg(target_os = "android")'.dependencies]
