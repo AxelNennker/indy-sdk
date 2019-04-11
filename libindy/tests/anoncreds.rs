@@ -23,6 +23,7 @@ extern crate rmp_serde;
 extern crate rust_base58;
 extern crate time;
 extern crate serde;
+extern crate indy_sys;
 
 #[macro_use]
 mod utils;
@@ -44,6 +45,19 @@ use utils::domain::anoncreds::revocation_state::RevocationState;
 use utils::domain::anoncreds::revocation_registry::RevocationRegistry;
 
 use std::collections::HashSet;
+
+#[macro_export]
+macro_rules! test {
+    ($name:ident, $block:block) => {
+        #[test]
+        fn $name() {
+            anoncreds::init_common_wallet();
+            let wallet_handle = wallet::open_wallet(ANONCREDS_WALLET_CONFIG, WALLET_CREDENTIALS).unwrap();
+            $block
+            wallet::close_wallet(wallet_handle).unwrap();
+        }
+    };
+}
 
 mod high_cases {
     use super::*;
@@ -69,23 +83,35 @@ mod high_cases {
             anoncreds::init_common_wallet();
         }
 
-        #[test]
-        fn issuer_create_and_store_credential_def_works_for_invalid_wallet() {
-            anoncreds::init_common_wallet();
-
-            let wallet_handle = wallet::open_wallet(ANONCREDS_WALLET_CONFIG, WALLET_CREDENTIALS).unwrap();
-
-            let invalid_wallet_handle = wallet_handle + 100;
+        test!(issuer_create_and_store_credential_def_works_for_invalid_wallet,
+        {
+            let invalid_wallet_handle = indy_sys::INVALID_WALLET_HANDLE;
             let res = anoncreds::issuer_create_credential_definition(invalid_wallet_handle,
-                                                                     ISSUER_DID,
-                                                                     &anoncreds::gvt_schema_json(),
-                                                                     TAG_1,
-                                                                     None,
-                                                                     Some(&anoncreds::default_cred_def_config()));
+            ISSUER_DID,
+            &anoncreds::gvt_schema_json(),
+            TAG_1,
+            None,
+            Some(&anoncreds::default_cred_def_config()));
             assert_code!(ErrorCode::WalletInvalidHandle, res);
+        });
 
-            wallet::close_wallet(wallet_handle).unwrap();
-        }
+//        #[test]
+//        fn issuer_create_and_store_credential_def_works_for_invalid_wallet() {
+//            anoncreds::init_common_wallet();
+//
+//            let wallet_handle = wallet::open_wallet(ANONCREDS_WALLET_CONFIG, WALLET_CREDENTIALS).unwrap();
+//
+//            let invalid_wallet_handle: WalletHandle = indy_sys::INVALID_WALLET_HANDLE;
+//            let res = anoncreds::issuer_create_credential_definition(invalid_wallet_handle,
+//                                                                     ISSUER_DID,
+//                                                                     &anoncreds::gvt_schema_json(),
+//                                                                     TAG_1,
+//                                                                     None,
+//                                                                     Some(&anoncreds::default_cred_def_config()));
+//            assert_code!(ErrorCode::WalletInvalidHandle, res);
+//
+//            wallet::close_wallet(wallet_handle).unwrap();
+//        }
     }
 
     mod issuer_create_credential_offer {
@@ -4493,7 +4519,7 @@ mod demos {
                                                    &rev_reg_defs_json,
                                                    &rev_regs_json);
         assert_code!(ErrorCode::CommonInvalidStructure, res);
-        
+
         wallet::close_wallet(wallet_handle).unwrap();
 
         utils::tear_down();
