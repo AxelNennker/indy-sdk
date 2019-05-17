@@ -5,7 +5,7 @@ use indy::{anoncreds, blob_storage, ledger};
 use time;
 
 use settings;
-use utils::constants::{LIBINDY_CRED_OFFER, REQUESTED_ATTRIBUTES, ATTRS, REV_STATE_JSON};
+use utils::constants::{LIBINDY_CRED_OFFER, REQUESTED_ATTRIBUTES, PROOF_REQUESTED_PREDICATES, ATTRS, REV_STATE_JSON};
 use utils::libindy::{error_codes::map_rust_indy_sdk_error, mock_libindy_rc, wallet::get_wallet_handle};
 use utils::libindy::payments::{pay_for_txn, PaymentTxn};
 use utils::libindy::ledger::*;
@@ -152,26 +152,45 @@ pub fn libindy_prover_get_credentials_for_proof_req(proof_req: &str) -> VcxResul
     // fn should never fail, unless libindy changes their formats.
     let requested_attributes: Option<Map<String, Value>> = proof_request_json.get(REQUESTED_ATTRIBUTES)
         .and_then(|v| {
-            serde_json::from_value(v.clone())
-                .map_err(|_| {
-                    error!("Invalid Json Parsing of Requested Attributes Retrieved From Libindy. Did Libindy change its structure?");
-                }).ok()
+            serde_json::from_value(v.clone()).map_err(|_| {
+                error!("Invalid Json Parsing of Requested Attributes Retrieved From Libindy. Did Libindy change its structure?");
+            }).ok()
         });
 
-    match requested_attributes {
-        Some(attrs) => {
-            let search_handle = anoncreds::prover_search_credentials_for_proof_req(wallet_handle, proof_req, None)
-                .wait()
-                .map_err(map_rust_indy_sdk_error)?;
-            let creds: String = fetch_credentials(search_handle, attrs)?;
-            // should an error on closing a search handle throw an error, or just a warning?
-            // for now we're are just outputting to the user that there is an issue, and continuing on.
-            let _ = close_search_handle(search_handle);
-            Ok(creds)
-        }
-        None => {
-            Err(VcxError::from_msg(VcxErrorKind::InvalidAttributesStructure, "Invalid Json Parsing of Requested Attributes Retrieved From Libindy"))
-        }
+    let requested_predicates: Option<Map<String, Value>> = proof_request_json.get(PROOF_REQUESTED_PREDICATES).and_then(|v| {
+        serde_json::from_value(v.clone()).map_err(|_| {
+            error!("Invalid Json Parsing of Requested Predicates Retrieved From Libindy. Did Libindy change its structure?");
+        }).ok()
+    });
+
+    // handle special case of "empty because json is bad" vs "empty because no attributes sepected"
+    if requested_attributes == None && requested_predicates == None {
+        return Err(VcxError::from_msg(VcxErrorKind::InvalidAttributesStructure, "Invalid Json Parsing of Requested Attributes Retrieved From Libindy"));
+    }
+
+    let mut fetch_attrs: Map<String, Value> = match requested_attributes {
+        Some(attrs) => attrs.clone(),
+        None => Map::new()
+    };
+    match requested_predicates {
+        Some(attrs) => fetch_attrs.extend(attrs),
+        None => ()
+    }
+    if 0 < fetch_attrs.len() {
+        let search_handle = anoncreds::prover_search_credentials_for_proof_req(wallet_handle, proof_req, None)
+            .wait()
+            .map_err(|ec| {
+                error!("Opening Indy Search for Credentials Failed");
+                map_rust_indy_sdk_error(ec)
+            })?;
+        let creds: String = fetch_credentials(search_handle, fetch_attrs)?;
+
+        // should an error on closing a search handle throw an error, or just a warning?
+        // for now we're are just outputting to the user that there is an issue, and continuing on.
+        let _ = close_search_handle(search_handle);
+        Ok(creds)
+    } else {
+        Ok("{}".to_string())
     }
 }
 
@@ -328,7 +347,9 @@ pub fn create_schema(name: &str, version: &str, data: &str) -> VcxResult<(String
 
     let (id, create_schema) = libindy_issuer_create_schema(&submitter_did, name, version, data)?;
 
-    let request = libindy_build_schema_request(&submitter_did, &create_schema)?;
+    let mut request = libindy_build_schema_request(&submitter_did, &create_schema)?;
+
+    request = append_txn_author_agreement_to_request(&request)?;
 
     let (payment, response) = pay_for_txn(&request, SCHEMA_TXN_TYPE)?;
 
@@ -366,7 +387,9 @@ pub fn create_cred_def(issuer_did: &str,
                                                                       sig_type,
                                                                       &config_json)?;
 
-    let cred_def_req = libindy_build_create_credential_def_txn(issuer_did, &cred_def_json)?;
+    let mut cred_def_req = libindy_build_create_credential_def_txn(issuer_did, &cred_def_json)?;
+
+    cred_def_req = append_txn_author_agreement_to_request(&cred_def_req)?;
 
     let (payment, response) = pay_for_txn(&cred_def_req, CRED_DEF_TXN_TYPE)?;
 
@@ -393,7 +416,9 @@ pub fn create_rev_reg_def(issuer_did: &str, cred_def_id: &str, tails_file: &str,
                                            tails_file,
                                            max_creds)?;
 
-    let rev_reg_def_req = libindy_build_revoc_reg_def_request(issuer_did, &rev_reg_def_json)?;
+    let mut rev_reg_def_req = libindy_build_revoc_reg_def_request(issuer_did, &rev_reg_def_json)?;
+
+    rev_reg_def_req = append_txn_author_agreement_to_request(&rev_reg_def_req)?;
 
     let (payment, _) = pay_for_txn(&rev_reg_def_req, REV_REG_DEF_TXN_TYPE)?;
 
@@ -412,7 +437,10 @@ pub fn get_rev_reg_def_json(rev_reg_id: &str) -> VcxResult<(String, String)> {
 
 pub fn post_rev_reg_delta(issuer_did: &str, rev_reg_id: &str, rev_reg_entry_json: &str)
                           -> VcxResult<(Option<PaymentTxn>, String)> {
-    let request = libindy_build_revoc_reg_entry_request(issuer_did, rev_reg_id, REVOC_REG_TYPE, rev_reg_entry_json)?;
+    let mut request = libindy_build_revoc_reg_entry_request(issuer_did, rev_reg_id, REVOC_REG_TYPE, rev_reg_entry_json)?;
+
+    request = append_txn_author_agreement_to_request(&request)?;
+
     pay_for_txn(&request, REV_REG_DELTA_TXN_TYPE)
 }
 
@@ -491,7 +519,9 @@ pub mod tests {
 
     pub fn create_schema_req(schema_json: &str) -> String {
         let institution_did = settings::get_config_value(settings::CONFIG_INSTITUTION_DID).unwrap();
-        ::utils::libindy::ledger::libindy_build_schema_request(&institution_did, schema_json).unwrap()
+        let request = ::utils::libindy::ledger::libindy_build_schema_request(&institution_did, schema_json).unwrap();
+        append_txn_author_agreement_to_request(&request).unwrap()
+
     }
 
     pub fn write_schema(request: &str) {
@@ -665,6 +695,77 @@ pub mod tests {
         (proof_req, proof)
     }
 
+    pub fn create_proof_with_predicate(include_predicate_cred: bool) -> (String, String, String, String) {
+        let did = settings::get_config_value(settings::CONFIG_INSTITUTION_DID).unwrap();
+        let (schema_id, schema_json, cred_def_id, cred_def_json, offer, req, req_meta, cred_id, _, _)
+        = create_and_store_credential(::utils::constants::DEFAULT_SCHEMA_ATTRS, false);
+
+        let proof_req = json!({
+           "nonce":"123432421212",
+           "name":"proof_req_1",
+           "version":"0.1",
+           "requested_attributes": json!({
+               "address1_1": json!({
+                   "name":"address1",
+                   "restrictions": [json!({ "issuer_did": did })]
+               }),
+               "self_attest_3": json!({
+                   "name":"self_attest",
+               }),
+           }),
+           "requested_predicates": json!({
+               "zip_3": {"name":"zip", "p_type":">=", "p_value":18}
+           }),
+        }).to_string();
+
+        let requested_credentials_json;
+        if include_predicate_cred {
+            requested_credentials_json = json!({
+              "self_attested_attributes":{
+                 "self_attest_3": "my_self_attested_val"
+              },
+              "requested_attributes":{
+                 "address1_1": {"cred_id": cred_id, "revealed": true}
+                },
+              "requested_predicates":{
+                  "zip_3": {"cred_id": cred_id}
+              }
+            }).to_string();
+        } else {
+            requested_credentials_json = json!({
+              "self_attested_attributes":{
+                 "self_attest_3": "my_self_attested_val"
+              },
+              "requested_attributes":{
+                 "address1_1": {"cred_id": cred_id, "revealed": true}
+                },
+              "requested_predicates":{
+              }
+            }).to_string();
+        }
+
+        let schema_json: serde_json::Value = serde_json::from_str(&schema_json).unwrap();
+        let schemas = json!({
+            schema_id: schema_json,
+        }).to_string();
+
+        let cred_def_json: serde_json::Value = serde_json::from_str(&cred_def_json).unwrap();
+        let cred_defs = json!({
+            cred_def_id: cred_def_json,
+        }).to_string();
+
+        libindy_prover_get_credentials_for_proof_req(&proof_req).unwrap();
+
+        let proof = libindy_prover_create_proof(
+            &proof_req,
+            &requested_credentials_json,
+            "main",
+            &schemas,
+            &cred_defs,
+            None).unwrap();
+        (schemas, cred_defs, proof_req, proof)
+    }
+
     #[cfg(feature = "pool_tests")]
     #[test]
     fn test_prover_verify_proof() {
@@ -683,6 +784,44 @@ pub mod tests {
         assert!(result.is_ok());
         let proof_validation = result.unwrap();
         assert!(proof_validation, true);
+    }
+
+    #[cfg(feature = "pool_tests")]
+    #[test]
+    fn test_prover_verify_proof_with_predicate_success_case() {
+        init!("ledger");
+        let (schemas, cred_defs, proof_req, proof) = create_proof_with_predicate(true);
+
+        let result = libindy_verifier_verify_proof(
+            &proof_req,
+            &proof,
+            &schemas,
+            &cred_defs,
+            "{}",
+            "{}",
+        );
+
+        assert!(result.is_ok());
+        let proof_validation = result.unwrap();
+        assert!(proof_validation, true);
+    }
+
+    #[cfg(feature = "pool_tests")]
+    #[test]
+    fn test_prover_verify_proof_with_predicate_fail_case() {
+        init!("ledger");
+        let (schemas, cred_defs, proof_req, proof) = create_proof_with_predicate(false);
+
+        let result = libindy_verifier_verify_proof(
+            &proof_req,
+            &proof,
+            &schemas,
+            &cred_defs,
+            "{}",
+            "{}",
+        );
+
+        assert!(!result.is_ok());
     }
 
     #[cfg(feature = "pool_tests")]

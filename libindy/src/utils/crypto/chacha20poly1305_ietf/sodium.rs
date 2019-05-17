@@ -3,7 +3,8 @@ extern crate zeroize;
 
 use domain::wallet::KeyDerivationMethod;
 use errors::prelude::*;
-use self::sodiumoxide::crypto::aead::chacha20poly1305_ietf;
+use self::sodiumoxide::crypto::aead::
+chacha20poly1305_ietf;
 use self::sodiumoxide::utils;
 use std::cmp;
 use std::io;
@@ -207,7 +208,7 @@ impl<R: Read> Read for Reader<R> {
         if self.rest_buffer.len() > 0 {
             let to_copy = cmp::min(self.rest_buffer.len(), buf.len() - pos);
             buf[pos..pos + to_copy].copy_from_slice(&self.rest_buffer[..to_copy]);
-            pos = pos + to_copy;
+            pos += to_copy;
             self.rest_buffer.drain(..to_copy);
         }
 
@@ -222,7 +223,7 @@ impl<R: Read> Read for Reader<R> {
 
             let to_copy = cmp::min(chunk.len(), buf.len() - pos);
             buf[pos..pos + to_copy].copy_from_slice(&chunk[..to_copy]);
-            pos = pos + to_copy;
+            pos += to_copy;
 
             // Save rest in rest buffer
             if pos == buf.len() && to_copy < chunk.len() {

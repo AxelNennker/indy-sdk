@@ -1,4 +1,4 @@
-extern crate indy_crypto;
+extern crate ursa;
 extern crate serde_json;
 extern crate zeroize;
 
@@ -72,7 +72,7 @@ pub enum CryptoCommand {
     ),
     PackMessage(
         Vec<u8>, // plaintext message
-        String,  // list of receiver's keys
+        Vec<String>,  // list of receiver's keys
         Option<String>,  // senders verkey
         WalletHandle,
         Box<Fn(IndyResult<Vec<u8>>) + Send>,
@@ -140,7 +140,7 @@ impl CryptoCommandExecutor {
             }
             CryptoCommand::PackMessage(message, receivers, sender_vk, wallet_handle, cb) => {
                 info!("PackMessage command received");
-                cb(self.pack_msg(message, &receivers, sender_vk, wallet_handle));
+                cb(self.pack_msg(message, receivers, sender_vk, wallet_handle));
             }
             CryptoCommand::UnpackMessage(jwe_json, wallet_handle, cb) => {
                 info!("UnpackMessage command received");
@@ -361,37 +361,30 @@ impl CryptoCommandExecutor {
     pub fn pack_msg(
         &self,
         message: Vec<u8>,
-        receivers: &str,
+        receiver_list: Vec<String>,
         sender_vk: Option<String>,
         wallet_handle: WalletHandle,
     ) -> IndyResult<Vec<u8>> {
 
-        //parse receivers to structs
-        let receiver_list: Vec<String> = serde_json::from_str(receivers).map_err(|err| {
-            err_msg(IndyErrorKind::InvalidStructure, format!(
-                "Failed to deserialize receiver list of keys {}",
-                err
-            ))
-        })?;
-
         //break early and error out if no receivers keys are provided
         if receiver_list.is_empty() {
-            return Err(err_msg(IndyErrorKind::InvalidStructure, format!(
-                "No receiver keys found"
-            )));
+            return Err(err_msg(IndyErrorKind::InvalidStructure, "No receiver keys found".to_string()));
         }
 
-        let (base64_protected, cek) = if let Some(sender_vk) = sender_vk {
+        //generate content encryption key that will encrypt `message`
+        let cek = chacha20poly1305_ietf::gen_key();
+
+        let base64_protected = if let Some(sender_vk) = sender_vk {
             self.crypto_service.validate_key(&sender_vk)?;
 
             //returns authcrypted pack_message format. See Wire message format HIPE for details
-            self._prepare_protected_authcrypt(receiver_list, &sender_vk, wallet_handle)?
+            self._prepare_protected_authcrypt(&cek, receiver_list, &sender_vk, wallet_handle)?
         } else {
             //returns anoncrypted pack_message format. See Wire message format HIPE for details
-            self._prepare_protected_anoncrypt(receiver_list)?
+            self._prepare_protected_anoncrypt(&cek, receiver_list)?
         };
 
-        // encrypt ciphertext and integrity protect "protected" field
+        // Use AEAD to encrypt `message` with "protected" data as "associated data"
         let (ciphertext, iv, tag) =
             self.crypto_service
                 .encrypt_plaintext(message, &base64_protected, &cek);
@@ -400,11 +393,10 @@ impl CryptoCommandExecutor {
     }
 
     fn _prepare_protected_anoncrypt(&self,
+                                    cek: &chacha20poly1305_ietf::Key,
                                     receiver_list: Vec<String>,
-    ) -> IndyResult<(String, chacha20poly1305_ietf::Key)> {
+    ) -> IndyResult<String> {
         let mut encrypted_recipients_struct : Vec<Recipient> = vec![];
-
-        let cek = chacha20poly1305_ietf::gen_key();
 
         for their_vk in receiver_list {
             //encrypt sender verkey
@@ -420,13 +412,14 @@ impl CryptoCommandExecutor {
                 },
             });
         } // end for-loop
-        Ok((self._base64_encode_protected(encrypted_recipients_struct, false)?, cek))
+        Ok(self._base64_encode_protected(encrypted_recipients_struct, false)?)
     }
 
     fn _prepare_protected_authcrypt(&self,
+                                    cek: &chacha20poly1305_ietf::Key,
                                     receiver_list: Vec<String>, sender_vk: &str,
                                     wallet_handle: WalletHandle,
-    ) -> IndyResult<(String, chacha20poly1305_ietf::Key)> {
+    ) -> IndyResult<String> {
         let mut encrypted_recipients_struct : Vec<Recipient> = vec![];
 
         //get my_key from my wallet
@@ -435,9 +428,6 @@ impl CryptoCommandExecutor {
             sender_vk,
             &RecordOptions::id_value()
         )?;
-
-        //generate cek
-        let cek = chacha20poly1305_ietf::gen_key();
 
         //encrypt cek for recipient
         for their_vk in receiver_list {
@@ -456,7 +446,7 @@ impl CryptoCommandExecutor {
             });
         } // end for-loop
 
-        Ok((self._base64_encode_protected(encrypted_recipients_struct, true)?, cek))
+        Ok(self._base64_encode_protected(encrypted_recipients_struct, true)?)
     }
 
     fn _base64_encode_protected(&self, encrypted_recipients_struct: Vec<Recipient>, alg_is_authcrypt: bool) -> IndyResult<String> {
@@ -553,12 +543,12 @@ impl CryptoCommandExecutor {
             recipient_verkey: recipient.header.kid
         };
 
-        return serde_json::to_vec(&res).map_err(|err| {
+        serde_json::to_vec(&res).map_err(|err| {
             err_msg(IndyErrorKind::InvalidStructure, format!(
                 "Failed to serialize message {}",
                 err
             ))
-        });
+        })
     }
 
     fn _find_correct_recipient(&self, protected_struct: Protected, wallet_handle: WalletHandle) -> IndyResult<(Recipient, bool)>{
@@ -574,7 +564,7 @@ impl CryptoCommandExecutor {
                 return Ok((recipient.clone(), recipient.header.sender.is_some()))
             }
         }
-        return Err(IndyError::from(IndyErrorKind::WalletItemNotFound));
+        Err(IndyError::from(IndyErrorKind::WalletItemNotFound))
     }
 
     fn _unpack_cek_authcrypt(&self, recipient: Recipient, wallet_handle: WalletHandle) -> IndyResult<(Option<String>, chacha20poly1305_ietf::Key)> {

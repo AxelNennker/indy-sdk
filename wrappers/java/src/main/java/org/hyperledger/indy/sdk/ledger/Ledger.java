@@ -1274,8 +1274,8 @@ public class Ledger extends IndyJava.API {
 	 * @param action - type of an action.
 	 *     Can be either "ADD" (to add a new rule) or "EDIT" (to edit an existing one).
 	 * @param field - transaction field.
-	 * @param oldValue - old value of a field, which can be changed to a new_value (mandatory for EDIT action).
-	 * @param newValue - new value that can be used to fill the field.
+	 * @param oldValue - (Optional) old value of a field, which can be changed to a new_value (mandatory for EDIT action).
+	 * @param newValue - (Optional) new value that can be used to fill the field.
 	 * @param constraint - set of constraints required for execution of an action in the following format:
 	 *     {
 	 *         constraint_id - [string] type of a constraint.
@@ -1323,6 +1323,248 @@ public class Ledger extends IndyJava.API {
 				oldValue,
 				newValue,
 				constraint,
+				buildRequestCb);
+
+		checkResult(future, result);
+
+		return future;
+	}
+
+	/**
+	 * Builds a GET_AUTH_RULE request. Request to get authentication rules for a ledger transaction.
+	 *
+	 * NOTE: Either none or all transaction related parameters must be specified (`oldValue` can be skipped for `ADD` action).
+	 *     * none - to get all authentication rules for all ledger transactions
+	 *     * all - to get authentication rules for specific action (`oldValue` can be skipped for `ADD` action)
+	 * 
+	 * @param submitterDid (Optional) DID of the read request sender.
+	 * @param txnType - (Optional) target ledger transaction alias or associated value.
+	 * @param action - (Optional) type of action for which authentication rules will be applied.
+	 *     Can be either "ADD" (to add new rule) or "EDIT" (to edit an existing one).
+	 * @param field - (Optional) transaction field for which authentication rule will be applied.
+	 * @param oldValue - (Optional) old value of field, which can be changed to a new_value (mandatory for EDIT action).
+	 * @param newValue - (Optional) new value that can be used to fill the field.
+	 *
+	 * @return A future resolving to a request result as json.
+	 * @throws IndyException Thrown if an error occurs when calling the underlying SDK.
+	 */
+	public static CompletableFuture<String> buildGetAuthRuleRequest(
+			String submitterDid,
+			String txnType,
+			String action,
+			String field,
+			String oldValue,
+			String newValue) throws IndyException {
+
+		ParamGuard.notNullOrWhiteSpace(submitterDid, "submitterDid");
+		ParamGuard.notNullOrWhiteSpace(txnType, "txnType");
+		ParamGuard.notNullOrWhiteSpace(action, "action");
+
+		CompletableFuture<String> future = new CompletableFuture<String>();
+		int commandHandle = addFuture(future);
+
+		int result = LibIndy.api.indy_build_get_auth_rule_request(
+				commandHandle,
+				submitterDid,
+				txnType,
+				action,
+				field,
+				oldValue,
+				newValue,
+				buildRequestCb);
+
+		checkResult(future, result);
+
+		return future;
+	}
+
+	/**
+	 * Builds a TXN_AUTHR_AGRMT request. Request to add a new version of Transaction Author Agreement to the ledger.
+	 * 
+	 * EXPERIMENTAL
+	 * 
+	 * @param submitterDid DID of the request sender.
+	 * @param text -  a content of the TTA.
+	 * @param version -  a version of the TTA (unique UTF-8 string).
+	 *
+	 * @return A future resolving to a request result as json.
+	 * @throws IndyException Thrown if an error occurs when calling the underlying SDK.
+	 */
+	public static CompletableFuture<String> buildTxnAuthorAgreementRequest(
+			String submitterDid,
+			String text,
+			String version) throws IndyException {
+
+		ParamGuard.notNullOrWhiteSpace(submitterDid, "submitterDid");
+		ParamGuard.notNull(text, "text");
+		ParamGuard.notNull(version, "version");
+
+		CompletableFuture<String> future = new CompletableFuture<String>();
+		int commandHandle = addFuture(future);
+
+		int result = LibIndy.api.indy_build_txn_author_agreement_request(
+				commandHandle,
+				submitterDid,
+				text,
+				version,
+				buildRequestCb);
+
+		checkResult(future, result);
+
+		return future;
+	}
+
+	/**
+	 * Builds a GET_TXN_AUTHR_AGRMT request. Request to get a specific Transaction Author Agreement from the ledger.
+	 * 
+	 * EXPERIMENTAL
+	 * 
+	 * @param submitterDid (Optional) DID of the request sender.
+	 * @param data -  (Optional) specifies a condition for getting specific TAA.
+	 * Contains 3 mutually exclusive optional fields:
+	 * {
+	 *     hash: Optional[str] - hash of requested TAA,
+	 *     version: Optional[str] - version of requested TAA.
+	 *     timestamp: Optional[u64] - ledger will return TAA valid at requested timestamp.
+	 * }
+	 * Null data or empty JSON are acceptable here. In this case, ledger will return the latest version of TAA.
+	 *
+	 * @return A future resolving to a request result as json.
+	 * @throws IndyException Thrown if an error occurs when calling the underlying SDK.
+	 */
+	public static CompletableFuture<String> buildGetTxnAuthorAgreementRequest(
+			String submitterDid,
+			String data) throws IndyException {
+		
+		CompletableFuture<String> future = new CompletableFuture<String>();
+		int commandHandle = addFuture(future);
+
+		int result = LibIndy.api.indy_build_get_txn_author_agreement_request(
+				commandHandle,
+				submitterDid,
+				data,
+				buildRequestCb);
+
+		checkResult(future, result);
+
+		return future;
+	}
+
+	/**
+	 * Builds a SET_TXN_AUTHR_AGRMT_AML request. Request to add a new acceptance mechanism for transaction author agreement.
+	 * Acceptance Mechanism is a description of the ways how the user may accept a transaction author agreement.
+	 *
+	 * EXPERIMENTAL
+	 * 
+	 * @param submitterDid DID of the request sender.
+	 * @param aml - a set of new acceptance mechanisms:
+	 * {
+	 *     “<acceptance mechanism label 1>”: { acceptance mechanism description 1},
+	 *     “<acceptance mechanism label 2>”: { acceptance mechanism description 2},
+	 *     ...
+	 * }
+	 * @param amlContext - (Optional) common context information about acceptance mechanisms (may be a URL to external resource).
+	 *               
+	 * @return A future resolving to a request result as json.
+	 * @throws IndyException Thrown if an error occurs when calling the underlying SDK.
+	 */
+	public static CompletableFuture<String> buildAcceptanceMechanismRequest(
+			String submitterDid,
+			String aml,
+			String amlContext) throws IndyException {
+
+		ParamGuard.notNullOrWhiteSpace(submitterDid, "submitterDid");
+		ParamGuard.notNull(aml, "aml");
+		
+		CompletableFuture<String> future = new CompletableFuture<String>();
+		int commandHandle = addFuture(future);
+
+		int result = LibIndy.api.indy_build_acceptance_mechanism_request(
+				commandHandle,
+				submitterDid,
+				aml,
+				amlContext,
+				buildRequestCb);
+
+		checkResult(future, result);
+
+		return future;
+	}
+
+	/**
+	 * Builds a GET_TXN_AUTHR_AGRMT_AML request. Request to get acceptance mechanisms from the ledger
+	 * valid for specified time or the latest one.
+	 *
+	 * EXPERIMENTAL
+	 *
+	 * @param submitterDid (Optional) DID of the request sender.
+	 * @param timestamp - time to get an active acceptance mechanisms. Pass -1 to get the latest one.
+	 *               
+	 * @return A future resolving to a request result as json.
+	 * @throws IndyException Thrown if an error occurs when calling the underlying SDK.
+	 */
+	public static CompletableFuture<String> buildGetAcceptanceMechanismRequest(
+			String submitterDid,
+			int timestamp) throws IndyException {
+		
+		CompletableFuture<String> future = new CompletableFuture<String>();
+		int commandHandle = addFuture(future);
+
+		int result = LibIndy.api.indy_build_get_acceptance_mechanism_request(
+				commandHandle,
+				submitterDid,
+				timestamp,
+				buildRequestCb);
+
+		checkResult(future, result);
+
+		return future;
+	}
+
+	/**
+	 * Append transaction author agreement acceptance data to a request.
+	 * This function should be called before signing and sending a request
+	 * if there is any transaction author agreement set on the Ledger.
+	 *
+	 * EXPERIMENTAL
+	 *
+	 * This function may calculate digest by itself or consume it as a parameter.
+	 * If all text, version and taaDigest parameters are specified, a check integrity of them will be done.
+	 *
+	 * @param requestJson original request data json.
+	 * @param text - (Optional) raw data about TAA from ledger.
+	 * @param version - (Optional) raw version about TAA from ledger.
+	 *     `text` and `version` parameters should be passed together.
+	 *     `text` and `version` parameters are required if taaDigest parameter is omitted.
+	 * @param taaDigest - (Optional) digest on text and version. This parameter is required if text and version parameters are omitted.
+	 * @param mechanism - mechanism how user has accepted the TAA
+	 * @param time - UTC timestamp when user has accepted the TAA
+	 *
+	 * @return A future resolving to an updated request result as json.
+	 * @throws IndyException Thrown if an error occurs when calling the underlying SDK.
+	 */
+	public static CompletableFuture<String> appendTxnAuthorAgreementAcceptanceToRequest(
+			String requestJson,
+			String text,
+			String version,
+			String taaDigest,
+			String mechanism,
+			long time) throws IndyException {
+
+		ParamGuard.notNull(requestJson, "requestJson");
+		ParamGuard.notNull(mechanism, "mechanism");
+
+		CompletableFuture<String> future = new CompletableFuture<String>();
+		int commandHandle = addFuture(future);
+
+		int result = LibIndy.api.indy_append_txn_author_agreement_acceptance_to_request(
+				commandHandle,
+				requestJson,
+				text,
+				version,
+				taaDigest,
+				mechanism,
+				time,
 				buildRequestCb);
 
 		checkResult(future, result);

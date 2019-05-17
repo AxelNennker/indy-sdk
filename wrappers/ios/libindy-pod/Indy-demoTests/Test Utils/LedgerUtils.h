@@ -189,6 +189,43 @@
                                        constraint:(NSString *)constraint
                                        outRequest:(NSString **)resultJson;
 
+- (NSError *)buildGetAuthRuleRequestWithSubmitterDid:(NSString *)submitterDid
+                                             txnType:(NSString *)txnType
+                                              action:(NSString *)action
+                                               field:(NSString *)field
+                                            oldValue:(NSString *)oldValue
+                                            newValue:(NSString *)newValue
+                                          outRequest:(NSString **)resultJson;
+
+// MARK: - Author agreement
+- (NSError *)buildTxnAuthorAgreementRequestWithSubmitterDid:(NSString *)submitterDid
+                                                       text:(NSString *)text
+                                                    version:(NSString *)version
+                                                 outRequest:(NSString **)resultJson;
+
+- (NSError *)buildGetTxnAuthorAgreementRequestWithSubmitterDid:(NSString *)submitterDid
+                                                          data:(NSString *)data
+                                                    outRequest:(NSString **)resultJson;
+
+// MARK: - Acceptance mechanism
+- (NSError *)buildAcceptanceMechanismRequestWithSubmitterDid:(NSString *)submitterDid
+                                                         aml:(NSString *)aml
+                                                  amlContext:(NSString *)amlContext
+                                                  outRequest:(NSString **)resultJson;
+
+- (NSError *)buildGetAcceptanceMechanismRequestWithSubmitterDid:(NSString *)submitterDid
+                                                      timestamp:(NSNumber *)timestamp
+                                                     outRequest:(NSString **)resultJson;
+
+// MARK: - Author Metadata
+- (NSError *)appendTxnAuthorAgreementAcceptanceToRequest:(NSString *)requestJson
+                                                    text:(NSString *)text
+                                                 version:(NSString *)version
+                                               taaDigest:(NSString *)taaDigest
+                                             accMechType:(NSString *)accMechType
+                                        timeOfAcceptance:(NSNumber *)timeOfAcceptance
+                                              outRequest:(NSString **)resultJson;
+
 // MARK: - Response Metadata
 - (NSError *)getResponseMetadata:(NSString *)response
                 responseMetadata:(NSString **)responseMetadata;

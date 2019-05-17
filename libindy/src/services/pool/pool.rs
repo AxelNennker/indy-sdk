@@ -25,7 +25,7 @@ use services::pool::rust_base58::{FromBase58, ToBase58};
 use services::pool::types::{LedgerStatus, RemoteNode};
 use utils::crypto::ed25519_sign;
 
-use super::indy_crypto::bls::VerKey;
+use super::ursa::bls::VerKey;
 use super::zmq;
 
 struct PoolSM<T: Networker, R: RequestHandler<T>> {
@@ -1117,6 +1117,35 @@ mod tests {
             match p.state {
                 PoolState::Active(state) => {
                     assert_eq!(state.request_handlers.len(), 0);
+                }
+                _ => assert!(false)
+            };
+
+            test::cleanup_storage();
+        }
+
+        #[test]
+        pub fn pool_wrapper_sends_requests_to_two_nodes() {
+            test::cleanup_storage();
+
+            ProtocolVersion::set(2);
+            _write_genesis_txns();
+
+            let req = json!({
+                "reqId": 1,
+                "operation": {
+                    "type": "105"
+                }
+            }).to_string();
+
+            let p: PoolSM<MockNetworker, MockRequestHandler> = PoolSM::new(Rc::new(RefCell::new(MockNetworker::new(0, 0, vec![]))), POOL, 1, 0, 0);
+            let p = p.handle_event(PoolEvent::CheckCache(1));
+            let p = p.handle_event(PoolEvent::Synced(MerkleTree::from_vec(vec![]).unwrap()));
+            let p = p.handle_event(PoolEvent::SendRequest(3, req, None, None));
+            assert_match!(PoolState::Active(_), p.state);
+            match p.state {
+                PoolState::Active(state) => {
+                    assert_eq!(state.networker.borrow().events.len(), 2);
                 }
                 _ => assert!(false)
             };
