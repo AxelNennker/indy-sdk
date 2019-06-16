@@ -1,4 +1,4 @@
-FROM amazonlinux:2017.03
+FROM amazonlinux:2018.03.0.20190514
 
 ARG uid=1000
 
