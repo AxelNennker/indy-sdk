@@ -188,7 +188,7 @@ fn _parse_response_with_fees(command_handle: CommandHandle, payment_method: &str
 /// # Returns
 /// * `get_utxo_txn_json` - Indy request for getting UTXO list for payment address
 /// * `payment_method`
-#[deprecated(since="2.0.0", note="please use `parse_get_payment_sources_with_from_response` instead")]
+#[deprecated(since="2.0.0", note="please use `build_get_payment_sources_with_from_request` instead")]
 pub fn build_get_payment_sources_request(wallet_handle: WalletHandle, submitter_did: Option<&str>, payment_address: &str) -> Box<Future<Item=(String, String), Error=IndyError>> {
     let (receiver, command_handle, cb) =
         ClosureHandler::cb_ec_string_string();
