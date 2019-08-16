@@ -12,6 +12,9 @@ cargo-fuzz = true
 path = ".."
 [dependencies.libfuzzer-sys]
 git = "https://github.com/rust-fuzz/libfuzzer-sys.git"
+[dependencies]
+serde_json = "1.0"
+libc = "0.2"
 
 # Prevent this from interfering with workspaces
 [workspace]
