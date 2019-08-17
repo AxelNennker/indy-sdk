@@ -106,7 +106,8 @@ impl CommandExecutor {
                 let pool_service = Rc::new(PoolService::new());
                 let wallet_service = Rc::new(WalletService::new());
 
-                let anoncreds_command_executor = AnoncredsCommandExecutor::new(anoncreds_service.clone(), blob_storage_service.clone(), pool_service.clone(), wallet_service.clone(), crypto_service.clone());
+                let mut anoncreds_command_executor : Option<AnoncredsCommandExecutor> = None;
+//                    AnoncredsCommandExecutor::new(anoncreds_service.clone(), blob_storage_service.clone(), pool_service.clone(), wallet_service.clone(), crypto_service.clone());
                 let crypto_command_executor = CryptoCommandExecutor::new(wallet_service.clone(), crypto_service.clone());
                 let ledger_command_executor = LedgerCommandExecutor::new(pool_service.clone(), crypto_service.clone(), wallet_service.clone(), ledger_service.clone());
                 let pool_command_executor = PoolCommandExecutor::new(pool_service.clone());
@@ -122,7 +123,15 @@ impl CommandExecutor {
                     match receiver.recv() {
                         Ok(Command::Anoncreds(cmd)) => {
                             info!("AnoncredsCommand command received");
-                            anoncreds_command_executor.execute(cmd);
+                            match anoncreds_command_executor {
+                                Some(ref executor) =>
+                                    executor.execute(cmd),
+                                None => {
+                                    let executor =
+                                        anoncreds_command_executor.get_or_insert_with(|| AnoncredsCommandExecutor::new(anoncreds_service.clone(), blob_storage_service.clone(), pool_service.clone(), wallet_service.clone(), crypto_service.clone()));
+                                    executor.execute(cmd)
+                                }
+                            };
                         }
                         Ok(Command::BlobStorage(cmd)) => {
                             info!("BlobStorageCommand command received");
