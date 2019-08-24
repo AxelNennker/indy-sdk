@@ -12,6 +12,7 @@ use std::ffi::CString;
 
 use serde_json::json;
 use libc::c_char;
+use indy::api::pool::indy_create_pool_ledger_config;
 
 fn fuzz_indy_create_wallet(data: &[u8]) {
     let command_handle: CommandHandle = 1;
@@ -51,8 +52,23 @@ fn fuzz_indy_generate_wallet_key(data: &[u8]) {
                                                Some(indy_generate_wallet_key_cb));
 }
 
+//fn fuzz_indy_create_pool_ledger_config(data: &[u8]) {
+//    let command_handle: CommandHandle = 1;
+//    extern fn cb(_command_handle_: CommandHandle, _err: ErrorCode) {}
+//    let seed : String = String::from_utf8_lossy(data).to_string();
+//    let config = json!({}).to_string();
+//    let config: CString = CString::new(config).unwrap();
+//    let config_name = "fuzz_pool_config_name";
+//    let config_name: CString = CString::new(config_name).unwrap();
+//    let _error_code = indy_create_pool_ledger_config(command_handle,
+//                                          config_name.as_ptr(),
+//                                                     config.as_ptr(),
+//                                                     Some(cb));
+//}
+
 fuzz_target!(|data: &[u8]| {
     fuzz_indy_create_wallet(data);
     fuzz_indy_create_wallet_json(data);
     fuzz_indy_generate_wallet_key(data);
+//    fuzz_indy_create_pool_ledger_config(data);
 });
