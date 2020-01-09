@@ -1,5 +1,3 @@
-extern crate sodiumoxide;
-
 use indy_api_types::errors::prelude::*;
 use failure::{err_msg, ResultExt};
 use self::sodiumoxide::crypto::secretbox;

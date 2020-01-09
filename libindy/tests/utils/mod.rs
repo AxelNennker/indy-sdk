@@ -85,7 +85,6 @@ macro_rules! inject_indy_dependencies {
         extern crate openssl;
         extern crate rmp_serde;
         extern crate rust_base58;
-        extern crate sodiumoxide;
         extern crate rand;
         extern crate regex;
         extern crate time;

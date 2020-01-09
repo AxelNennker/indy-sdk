@@ -1,5 +1,4 @@
 extern crate owning_ref;
-extern crate sodiumoxide;
 
 use std;
 use std::fs;

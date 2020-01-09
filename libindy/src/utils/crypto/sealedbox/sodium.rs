@@ -1,9 +1,7 @@
-extern crate sodiumoxide;
-
 use indy_api_types::errors::prelude::*;
-use self::sodiumoxide::crypto::sealedbox;
-use super::ed25519_box;
+use crate::utils::crypto::ed25519_box;
 
+use ursa::
 pub fn encrypt(pk: &ed25519_box::PublicKey, doc: &[u8]) -> Result<Vec<u8>, IndyError> {
     Ok(sealedbox::seal(doc, &pk.0))
 }

@@ -1,5 +1,3 @@
-extern crate sodiumoxide;
-
 use indy_api_types::domain::wallet::KeyDerivationMethod;
 use indy_api_types::errors::prelude::*;
 use self::sodiumoxide::crypto::aead::chacha20poly1305_ietf;

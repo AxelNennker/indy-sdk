@@ -1,5 +1,4 @@
 extern crate serde;
-extern crate sodiumoxide;
 
 use indy_api_types::domain::wallet::KeyDerivationMethod;
 use indy_api_types::errors::prelude::*;

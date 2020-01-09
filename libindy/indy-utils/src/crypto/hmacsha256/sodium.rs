@@ -1,5 +1,3 @@
-extern crate sodiumoxide;
-
 use self::sodiumoxide::crypto::auth::hmacsha256;
 
 pub const KEYBYTES: usize = hmacsha256::KEYBYTES;

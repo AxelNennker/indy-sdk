@@ -605,8 +605,6 @@ mod tests {
     }
 
     pub mod nodes_emulator {
-        extern crate sodiumoxide;
-
         use rust_base58::{ToBase58, FromBase58};
         use crate::utils::crypto::ed25519_sign;
 

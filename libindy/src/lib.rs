@@ -35,7 +35,6 @@ extern crate uuid;
 
 #[macro_use]
 extern crate derivative;
-extern crate sodiumoxide;
 extern crate core;
 
 extern crate hex;
